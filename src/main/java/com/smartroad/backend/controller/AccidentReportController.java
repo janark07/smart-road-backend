@@ -7,6 +7,7 @@ import com.smartroad.backend.service.EmailService;
 import com.smartroad.backend.model.User;
 import com.smartroad.backend.repository.UserRepository;
 import com.smartroad.backend.service.NotificationService;
+import com.smartroad.backend.service.S3Service;
 
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Paragraph;
@@ -27,9 +28,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +57,9 @@ public class AccidentReportController {
     
     @Autowired
     private ExcelService excelService;
+    
+    @Autowired
+    private S3Service s3Service;
 
     @GetMapping("/test-mail")
     public String testMail() {
@@ -202,20 +203,10 @@ public class AccidentReportController {
 
     // IMAGE UPLOAD
     @PostMapping("/upload")
-    public String uploadImage(
-            @RequestParam("file") MultipartFile file)
+    public String uploadImage(@RequestParam("file") MultipartFile file)
             throws IOException {
 
-        Files.createDirectories(Paths.get("uploads"));
-
-        String fileName =
-                System.currentTimeMillis() + "_" + file.getOriginalFilename();
-
-        Path path = Paths.get("uploads/" + fileName);
-
-        Files.write(path, file.getBytes());
-
-        return fileName;
+        return s3Service.uploadFile(file);
     }
 
     // HOTSPOTS
