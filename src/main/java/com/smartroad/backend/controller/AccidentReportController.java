@@ -42,6 +42,12 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -291,14 +297,11 @@ public class AccidentReportController {
         document.add(new Chunk(separator));
         document.add(new Paragraph(" "));
 
-        // Fetch data
-        List<AccidentReport> reports = reportRepository.findAll();
-
-        // ------------------ DASHBOARD / STATISTICS WIDGETS ------------------
-        long totalCount = reports.size();
-        long criticalCount = reports.stream().filter(r -> "Critical".equalsIgnoreCase(r.getSeverity())).count();
-        long pendingCount = reports.stream().filter(r -> "Pending".equalsIgnoreCase(r.getStatus())).count();
-        long resolvedCount = reports.stream().filter(r -> "Resolved".equalsIgnoreCase(r.getStatus())).count();
+        // Fetch summary counts without loading all entities
+        long totalCount = reportRepository.count();
+        long criticalCount = reportRepository.countBySeverity("Critical");
+        long pendingCount = reportRepository.countByStatus("Pending");
+        long resolvedCount = reportRepository.countByStatus("Resolved");
 
         PdfPTable statsTable = new PdfPTable(4);
         statsTable.setWidthPercentage(100);
@@ -335,9 +338,13 @@ public class AccidentReportController {
             table.addCell(hCell);
         }
 
-        // Add table row cells
+        // Stream reports page-by-page to avoid loading all into memory
         int rowIndex = 0;
-        for (AccidentReport report : reports) {
+        Pageable pageRequest = PageRequest.of(0, 500);
+        Page<AccidentReport> page;
+        do {
+            page = reportRepository.findAll(pageRequest);
+            for (AccidentReport report : page.getContent()) {
             BaseColor rowBg = (rowIndex % 2 == 0) ? BaseColor.WHITE : new BaseColor(248, 250, 252); // Alternating `#F8FAFC`
             BaseColor borderColor = new BaseColor(226, 232, 240); // Light border color
 
@@ -422,8 +429,10 @@ public class AccidentReportController {
             cellDate.setBorderColor(borderColor);
             table.addCell(cellDate);
 
-            rowIndex++;
-        }
+                rowIndex++;
+            }
+            pageRequest = pageRequest.next();
+        } while (page.hasNext());
 
         document.add(table);
         document.close();
@@ -572,29 +581,44 @@ public class AccidentReportController {
     }
     
     @GetMapping("/excel")
-    public ResponseEntity<InputStreamResource> downloadExcel()
-            throws Exception {
+    public void downloadExcel(HttpServletResponse response) throws Exception {
 
-        List<AccidentReport> reports =
-                reportRepository.findAll();
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=AccidentReports.xlsx");
 
-        ByteArrayInputStream in =
-                excelService.export(reports);
+        // Create an iterator that pages through the repository results
+        Iterator<AccidentReport> iterator = new Iterator<>() {
+            private int currentPage = 0;
+            private Page<AccidentReport> page = null;
+            private int index = 0;
 
-        HttpHeaders headers =
-                new HttpHeaders();
+            private void ensurePage() {
+                if (page == null || index >= page.getContent().size()) {
+                    Pageable pageable = PageRequest.of(currentPage, 500);
+                    page = reportRepository.findAll(pageable);
+                    index = 0;
+                    currentPage++;
+                }
+            }
 
-        headers.add(
-                "Content-Disposition",
-                "attachment; filename=AccidentReports.xlsx"
-        );
+            @Override
+            public boolean hasNext() {
+                ensurePage();
+                return page != null && index < page.getContent().size();
+            }
 
-        return ResponseEntity.ok()
-                .headers(headers)
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(new InputStreamResource(in));
+            @Override
+            public AccidentReport next() {
+                ensurePage();
+                if (page == null || index >= page.getContent().size()) {
+                    throw new NoSuchElementException();
+                }
+                return page.getContent().get(index++);
+            }
+        };
 
+        // Stream-export directly to the response output stream
+        excelService.exportToStream(iterator, response.getOutputStream());
     }
     
     @GetMapping("/monthly")

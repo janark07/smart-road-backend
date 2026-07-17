@@ -31,4 +31,9 @@ public interface AccidentReportRepository
     				ORDER BY SUBSTRING(a.date, 1, 7)
     				""")
     				List<Object[]> getMonthlyReports();
+
+			// Derived count queries to avoid loading all entities into memory
+			long countByStatus(String status);
+
+			long countBySeverity(String severity);
 }
