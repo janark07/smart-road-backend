@@ -1,57 +1,56 @@
 package com.smartroad.backend.controller;
 
-import com.smartroad.backend.model.AccidentReport;
-import com.smartroad.backend.repository.AccidentReportRepository;
-import com.smartroad.backend.service.AccidentReportService;
-import com.smartroad.backend.service.EmailService;
-import com.smartroad.backend.model.User;
-import com.smartroad.backend.repository.UserRepository;
-import com.smartroad.backend.service.NotificationService;
-import com.smartroad.backend.service.S3Service;
-
-import com.itextpdf.text.Document;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.FontFactory;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.Chunk;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.draw.LineSeparator;
-import java.io.ByteArrayInputStream;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.core.io.InputStreamResource;
-
-import com.smartroad.backend.service.ExcelService;
-
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Chunk;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.FontFactory;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+import com.itextpdf.text.pdf.draw.LineSeparator;
+import com.smartroad.backend.model.AccidentReport;
+import com.smartroad.backend.model.User;
+import com.smartroad.backend.repository.AccidentReportRepository;
+import com.smartroad.backend.repository.UserRepository;
+import com.smartroad.backend.service.AccidentReportService;
+import com.smartroad.backend.service.EmailService;
+import com.smartroad.backend.service.ExcelService;
+import com.smartroad.backend.service.NotificationService;
+import com.smartroad.backend.service.S3Service;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/reports")
-@CrossOrigin(origins = "http://localhost:5173")
 public class AccidentReportController {
 
 	

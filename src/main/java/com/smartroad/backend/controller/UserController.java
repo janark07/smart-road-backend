@@ -1,14 +1,21 @@
 package com.smartroad.backend.controller;
 import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.smartroad.backend.model.User;
 import com.smartroad.backend.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
 	
 	public UserController() {
@@ -37,22 +44,27 @@ public class UserController {
         return "Login API Loaded";
     }
 
-    // LOGIN METHOD
+    // LOGIN METHOD with timeout to fail fast if DB is unreachable
     @PostMapping("/login")
     public User loginUser(@RequestBody User user) {
+        try {
+            java.util.concurrent.CompletableFuture<User> fut =
+                    java.util.concurrent.CompletableFuture.supplyAsync(() -> userRepository.findByEmail(user.getEmail()));
 
-        User existingUser =
-            userRepository.findByEmail(user.getEmail());
-           
-        if(existingUser != null) {
-            System.out.println("Entered Password: " + user.getPassword());
-            System.out.println("DB Password: " + existingUser.getPassword());
-        }
-        
-        if (existingUser != null &&
-            existingUser.getPassword().equals(user.getPassword())) {
+            User existingUser = fut.get(3, java.util.concurrent.TimeUnit.SECONDS);
 
-            return existingUser;
+            if(existingUser != null) {
+                System.out.println("Entered Password: " + user.getPassword());
+                System.out.println("DB Password: " + existingUser.getPassword());
+            }
+
+            if (existingUser != null && existingUser.getPassword().equals(user.getPassword())) {
+                return existingUser;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Login attempt failed or timed out: " + e.getMessage());
+            // fall through and return null for failed login
         }
 
         return null;
